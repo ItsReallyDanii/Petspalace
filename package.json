@@ -2,17 +2,12 @@
   "name": "pets-ai-monorepo",
   "private": true,
   "version": "0.1.0",
-  "workspaces": [
-    "api",
-    "edge",
-    "web"
-  ],
+  "workspaces": ["web"],
   "scripts": {
     "dev:api": "uvicorn api.main:app --reload",
     "dev:web": "pnpm --filter web dev",
     "dev:edge": "python edge/consumer.py",
     "seed": "python tests/seed_fixtures.py",
     "test": "pytest -q"
-  },
-  "devDependencies": {}
+  }
 }

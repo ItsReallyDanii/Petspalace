@@ -1,0 +1,9 @@
+{
+  "pet_id": "pet456",
+  "room_id": "room1",
+  "kind": "aggression",
+  "severity": "high",
+  "state": "open",
+  "evidence_url": "https://example.com/clip.mp4",
+  "ts": "2025-01-01T13:00:00Z"
+}

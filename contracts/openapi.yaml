@@ -1,0 +1,181 @@
+openapi: 3.0.3
+info:
+  title: Pets × AI HTTP API
+  version: 1.0.0
+  description: |
+    This OpenAPI specification describes the HTTP endpoints used by the Pets × AI
+    monorepo.  It contains operations for creating lost‑pet cases, uploading
+    photos to a case and running deterministic visual search.  All request and
+    response shapes defined here are considered a contract.  Generated server
+    stubs and type‑safe clients must respect these definitions and any changes
+    should be made here first.
+paths:
+  /v1/cases:
+    post:
+      summary: Create a new lost‑pet case
+      description: |
+        Create a new case for a missing animal.  The caller supplies metadata
+        about the pet and its general location.  The server persists the case
+        and returns a unique identifier.  Consent flags control whether
+        embeddings and photos may be shared.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCaseRequest'
+      responses:
+        '201':
+          description: Case created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCaseResponse'
+  /v1/cases/{id}/photos:
+    post:
+      summary: Upload photos for an existing case
+      description: |
+        Attach one or more photographs to an existing case.  Photos are
+        uploaded via multipart/form‑data.  The server stores the metadata and
+        returns a photo identifier.  Actual image bytes are persisted to
+        MinIO/S3.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Case identifier returned from the create case call
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                view:
+                  type: string
+                  description: Perspective of the animal in the photo (e.g. face, body)
+              required:
+                - file
+      responses:
+        '201':
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoUploadResponse'
+  /v1/search:
+    post:
+      summary: Run a visual search against lost‑pet cases
+      description: |
+        Perform a deterministic, mocked approximate nearest‑neighbour search for
+        a given case.  Returns a list of candidate matches along with a
+        confidence band.  The server must respond within 900 ms (P95).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+components:
+  schemas:
+    CreateCaseRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: Identifier of the owner submitting the case
+        type:
+          type: string
+          description: Nature of the case (lost/found)
+          enum: [lost, found]
+        species:
+          type: string
+          description: Species of animal (e.g. dog, cat)
+        geohash6:
+          type: string
+          description: Approximate location encoded as a six‑character geohash
+        consent:
+          type: object
+          description: Consent flags controlling privacy behaviour
+          properties:
+            shareVectors:
+              type: boolean
+              description: Whether embeddings may be shared with other cases
+            sharePhotos:
+              type: boolean
+              description: Whether photos may be shared with other cases
+          required:
+            - shareVectors
+            - sharePhotos
+      required:
+        - user_id
+        - type
+        - species
+        - geohash6
+        - consent
+    CreateCaseResponse:
+      type: object
+      properties:
+        case_id:
+          type: string
+      required:
+        - case_id
+    PhotoUploadResponse:
+      type: object
+      properties:
+        photo_id:
+          type: string
+      required:
+        - photo_id
+    SearchRequest:
+      type: object
+      properties:
+        case_id:
+          type: string
+          description: Identifier of the case to search against
+        top_k:
+          type: integer
+          description: Number of candidates to return
+          default: 10
+          minimum: 1
+      required:
+        - case_id
+    SearchCandidate:
+      type: object
+      properties:
+        pet_id:
+          type: string
+          description: Identifier of the candidate pet
+        score:
+          type: number
+          format: float
+          description: Similarity score (higher is more similar)
+        band:
+          type: string
+          description: Confidence band derived from score
+          enum: [strong, moderate, weak]
+      required:
+        - pet_id
+        - score
+        - band
+    SearchResponse:
+      type: object
+      properties:
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchCandidate'
+      required:
+        - candidates
